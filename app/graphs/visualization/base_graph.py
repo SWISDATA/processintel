@@ -16,7 +16,8 @@ class Node:
         self,
         id: str | int,
         label: str = "",
-        data: dict[str, str | int | float] = None,
+        data: dict[str, str | int | float] | None = None,
+        attributes: dict[str, str | int | float] | None = None,
     ) -> None:
         """Initializes the Node object.
 
@@ -26,15 +27,20 @@ class Node:
             The id of the node.
         label : str, optional
             The label of the node. If not provided, the id is used as the label, by default "".
-        data : dict[str, str  |  int  |  float], optional
+        data : dict[str, str  |  int  |  float] | None, optional
             A dictionary of data for the node, by default None.
+        attributes : dict[str, str | int | float] | None, optional
+            Additional Graphviz attributes of the node, by default None.
         """
         self.id: str = str(id)
         if label:
             self.label: str = label
         else:
             self.label: str = str(id)
-        self.__data: dict[str, str | int | float] = data
+        self.__data: dict[str, str | int | float] | None = None
+        self.attributes: dict[str, str | int | float] | None = {}
+        self.set_data(data)
+        self.set_attributes(attributes)
 
     def get_label(self) -> str:
         """Returns the label of the node.
@@ -56,7 +62,20 @@ class Node:
         """
         return self.id
 
-    def get_data(self) -> dict[str, str | int | float]:
+    def set_data(self, data: dict[str, str | int | float] | None) -> None:
+        """Set the data stored in the node.
+
+        Parameters
+        ----------
+        data : dict[str, str  |  int  |  float]
+            The new node data.
+        """
+        if data is not None:
+            self.__data = data.copy()
+        else:
+            self.__data = None
+
+    def get_data(self) -> dict[str, str | int | float] | None:
         """Returns the data of the node.
 
         Returns
@@ -65,6 +84,29 @@ class Node:
             The data of the node.
         """
         return self.__data
+
+    def set_attributes(self, attributes: dict[str, str | int | float] | None) -> None:
+        """Set the Graphviz attributes of the node.
+
+        Parameters
+        ----------
+        attributes : dict[str, str  |  int  |  float] | None
+            New attributes of the node.
+        """
+        if attributes is not None:
+            self.attributes = attributes.copy()
+        else:
+            self.attributes = {}
+
+    def get_attributes(self) -> dict[str, str | int | float]:
+        """Returns the Graphviz attributes of the node.
+
+        Returns
+        -------
+        dict[str, str | int | float]
+            The attributes of the node.
+        """
+        return self.attributes
 
     def get_data_from_key(self, key: str) -> str | int | float | None:
         """Returns the value of the data corresponding to the key.
@@ -157,6 +199,7 @@ class BaseGraph:
         self.edges: dict[tuple[str, str], Edge] = {}
 
         self.graph = graphviz.Digraph(
+            strict=True,
             graph_attr={"fontname": "Montserrat"},
             node_attr={"fontname": "Montserrat"},
             edge_attr={"fontname": "Montserrat"},
@@ -171,6 +214,8 @@ class BaseGraph:
         # UI feature: optionally highlight Happy Path
         # Separate state so one can toggle highlighting without re-mining the whole model.
         self._highlighted_node_ids: set[str] = set()
+        self._invisible_node_ids: set[str] = set()
+        self._invisible_edge_ids: set[tuple[str, str]] = set()
         self._highlight_fillcolor = "#FFE08A"
         self._highlight_bordercolor = "#D97B00"
 
@@ -200,6 +245,56 @@ class BaseGraph:
                     break
 
         self._highlighted_node_ids = highlighted
+
+    def set_invisible_nodes(self, current_node_ids: list[str]) -> None:
+        """Mark nodes missing from the current graph as invisible.
+
+        Parameters
+        ----------
+        current_node_ids : list[str]
+            List of all node ids present in current filtered graph.
+        """
+        self._invisible_node_ids = set()
+        for node in self.get_nodes():
+            if node.get_id() not in current_node_ids:
+                self._invisible_node_ids.add(node.get_id())
+
+    def update_visible_nodes(self, current_nodes: list[Node]) -> None:
+        """Update labels, data and visual attributes of nodes that exist in both graphs.
+
+        Parameters
+        ----------
+        current_nodes : list[Node]
+            The filtered nodes of current graph.
+        """
+        for node in current_nodes:
+            node_id = node.get_id()
+            if not self.contains_node(node_id):
+                continue
+
+            fixed_node = self.get_node(node_id)
+            fixed_node.label = node.get_label()
+            fixed_node.set_data(node.get_data())
+            fixed_node.set_attributes(node.get_attributes())
+
+    def set_invisible_edges(self, edges: list[Edge]) -> None:
+        """Mark edges missing from current graph as invisible.
+
+        Parameters
+        ----------
+        edges : list[Edge]
+            List of all edges that are present in current filtered graph.
+        """
+        self._invisible_edge_ids = set()
+
+        edge_ids = {(edge.source, edge.destination) for edge in edges}
+        for source_id, target_id in self.edges.keys():
+            if (
+                (source_id, target_id) not in edge_ids
+                or source_id in self._invisible_node_ids
+                or target_id in self._invisible_node_ids
+            ):
+                self._invisible_edge_ids.add((source_id, target_id))
 
     def add_node(
         self,
@@ -235,16 +330,16 @@ class BaseGraph:
         if self.contains_node(id):
             raise DuplicateNodeException(id)
 
-        node = Node(id, label, data)
-        self.nodes[node.get_id()] = node
-
         if "filled" not in node_attributes.get("style", ""):
             if "style" in node_attributes:
                 node_attributes["style"] += ", filled"
             else:
                 node_attributes["style"] = "filled"
 
-        graphviz_id = self.substitiute_colons(node.get_id())
+        node = Node(id, label, data, attributes=node_attributes.copy())
+        self.nodes[node.get_id()] = node
+
+        graphviz_id = self.substitute_colons(node.get_id())
         self.graph.node(graphviz_id, node.get_label(), **node_attributes)
 
     def add_start_node(self, id: str = "Start") -> None:
@@ -347,7 +442,7 @@ class BaseGraph:
         Parameters
         ----------
         source_id : str | int
-            soruce node id
+            source node id
         target_id : str | int
             target node id
         weight : float, optional
@@ -379,8 +474,8 @@ class BaseGraph:
         else:
             label = str(weight)
 
-        graphviz_source_id = self.substitiute_colons(edge.source)
-        graphviz_target_id = self.substitiute_colons(edge.destination)
+        graphviz_source_id = self.substitute_colons(edge.source)
+        graphviz_target_id = self.substitute_colons(edge.destination)
 
         self.graph.edge(
             graphviz_source_id,
@@ -512,33 +607,96 @@ class BaseGraph:
             The graphviz string of the graph.
         """
         source = self.graph.source
-        if not self._highlighted_node_ids:
-            return source
+        lines = []
 
-        # Inject "override" node statements before the closing brace.
-        # Graphviz merges attributes for the same node id -> safely updates styling.
-        highlight_lines = []
-        for node_id in sorted(self._highlighted_node_ids):
-            graphviz_node_id = self.substitiute_colons(str(node_id))
-
-            # Quote/escape the id so the injected DOT stays valid even if node ids contain special characters.
-            escaped_node_id = graphviz_node_id.replace("\\", "\\\\").replace('"', '\\"')
-            highlight_lines.append(
-                f'\t"{escaped_node_id}" '
-                f'[fillcolor="{self._highlight_fillcolor}", color="{self._highlight_bordercolor}", penwidth="2"];'
-            )
+        lines.extend(self._make_invisible_edge_lines())
+        lines.extend(self._make_invisible_node_lines())
+        lines.extend(self._make_highlighted_node_lines())
 
         closing_brace_index = source.rfind("}")
         if closing_brace_index == -1:
-            return source + "\n" + "\n".join(highlight_lines)
+            return source + "\n" + "\n".join(lines)
 
         return (
             source[:closing_brace_index]
             + "\n"
-            + "\n".join(highlight_lines)
+            + "\n".join(lines)
             + "\n"
             + source[closing_brace_index:]
         )
+
+    def _get_escaped_node_id(self, node_id: str) -> str:
+        """Escape a Graphviz node id.
+
+        Parameters
+        ----------
+        node_id : str
+            The node id to quote/escape.
+
+        Returns
+        -------
+        str
+            The escaped Graphviz node id.
+        """
+        graphviz_node_id = self.substitute_colons(str(node_id))
+        # Quote/escape the id so the injected DOT stays valid even if node ids contain special characters.
+        escaped_node_id = graphviz_node_id.replace("\\", "\\\\").replace('"', '\\"')
+        return escaped_node_id
+
+    def _make_invisible_edge_lines(self) -> list[str]:
+        """Create Graphviz lines for edges that are set to invisible.
+
+        Returns
+        -------
+        list[str]
+           Graphviz edges set to invisible.
+        """
+        lines = []
+        for source_id, target_id in self._invisible_edge_ids:
+            escaped_source_id = self._get_escaped_node_id(source_id)
+            escaped_target_id = self._get_escaped_node_id(target_id)
+            lines.append(
+                f'\t"{escaped_source_id}" -> "{escaped_target_id}" [style="invis"];'
+            )
+
+        return lines
+
+    def _make_invisible_node_lines(self) -> list[str]:
+        """Create Graphviz lines for nodes that should be set to invisible.
+
+        Returns
+        -------
+        list[str]
+            Graphviz nodes set to invisible.
+        """
+        lines = []
+        if self._invisible_node_ids:
+            for node_id in self._invisible_node_ids:
+                escaped_node_id = self._get_escaped_node_id(node_id)
+                lines.append(f'\t"{escaped_node_id}" [style="invis"];')
+
+        return lines
+
+    def _make_highlighted_node_lines(self) -> list[str]:
+        """Create Graphviz lines for highlighted nodes in fixed graph.
+
+        Returns
+        -------
+        list[str]
+            Graphviz highlighted nodes.
+        """
+        lines = []
+        if self._highlighted_node_ids:
+            # Inject "override" node statements before the closing brace.
+            # Graphviz merges attributes for the same node id -> safely updates styling.
+            for node_id in sorted(self._highlighted_node_ids):
+                escaped_node_id = self._get_escaped_node_id(node_id)
+                lines.append(
+                    f'\t"{escaped_node_id}" '
+                    f'[fillcolor="{self._highlight_fillcolor}", color="{self._highlight_bordercolor}", penwidth="2"];'
+                )
+
+        return lines
 
     def get_graphviz_graph(self) -> graphviz.Digraph:
         """Returns the graphviz graph of the graph.
@@ -599,7 +757,7 @@ class BaseGraph:
                 description += f"\n**{key}:** {value}"
         return name, description
 
-    def substitiute_colons(self, string: str) -> str:
+    def substitute_colons(self, string: str) -> str:
         """Replaces the colon with the colon substitute in the string.
 
         Parameters
