@@ -248,6 +248,49 @@ class TestBaseGraph(unittest.TestCase):
         self.assertEqual(edge.source, "node:1")
         self.assertEqual(edge.destination, "node2")
 
+    def test_set_invisible_edges_applies_invisible_style_to_missing_edges(self):
+        fixed_graph = BaseGraph()
+        fixed_graph.add_node("node1")
+        fixed_graph.add_node("node2")
+        fixed_graph.add_node("node3")
+        fixed_graph.add_edge("node1", "node2", 3)
+        fixed_graph.add_edge("node1", "node3", 4)
+
+        current_graph = BaseGraph()
+        current_graph.add_node("node1")
+        current_graph.add_node("node2")
+        current_graph.add_node("node3")
+        current_graph.add_edge("node1", "node2", 3)
+
+        fixed_graph.set_invisible_edges(current_graph.get_edges())
+        graphviz_string = fixed_graph.get_graphviz_string()
+
+        self.assertIn("node1 -> node2 [label=3]", graphviz_string)
+        self.assertIn("node1 -> node3 [label=4]", graphviz_string)
+        self.assertIn('"node1" -> "node3" [style="invis"];', graphviz_string)
+
+    def test_set_invisible_edges_handles_quoted_edge_ids(self):
+        fixed_graph = BaseGraph()
+        fixed_graph.add_node("Start")
+        fixed_graph.add_node("task 1")
+        fixed_graph.add_node("End")
+        fixed_graph.add_edge("Start", "task 1", None)
+        fixed_graph.add_edge("task 1", "End", None)
+
+        current_graph = BaseGraph()
+        current_graph.add_node("Start")
+        current_graph.add_node("End")
+
+        fixed_graph.set_invisible_nodes(current_graph.get_node_ids())
+        fixed_graph.set_invisible_edges(current_graph.get_edges())
+        graphviz_string = fixed_graph.get_graphviz_string()
+
+        self.assertIn('Start -> "task 1" [label=""]', graphviz_string)
+        self.assertIn('"task 1" -> End [label=""]', graphviz_string)
+        self.assertIn('"Start" -> "task 1" [style="invis"];', graphviz_string)
+        self.assertIn('"task 1" -> "End" [style="invis"];', graphviz_string)
+        self.assertIn('"task 1" [style="invis"];', graphviz_string)
+
 
 if __name__ == "__main__":
     unittest.main()
