@@ -31,7 +31,9 @@ class BaseAlgorithmView(BaseView):
         with export_button_column:
             self.export_button_container = st.empty()
 
-    def render_sidebar(self, sidebar_values: dict[str, any]) -> None:
+    def render_sidebar(
+        self, sidebar_values: dict[str, any], supports_fixed_graph_layout: bool = False
+    ) -> None:
         """Renders the sidebar for the algorithm views.
         Displays shared filters and calls extension hooks for node and edge filtering.
 
@@ -40,6 +42,8 @@ class BaseAlgorithmView(BaseView):
         sidebar_values : dict[str, any]
             A dictionary containing the values for the sidebar elements. The keys of the dictionary
             are equal to the keys of the sliders and define the slider bounds.
+        supports_fixed_graph_layout : bool, optional
+            If True, the fixed graph layout is available, by default False.
         """
         st.write("### **Log Filtering**")
 
@@ -109,22 +113,39 @@ class BaseAlgorithmView(BaseView):
                     trace_str = " -> ".join(str(step) for step in trace)
                     st.markdown(f"**Current Variant:** {trace_str}")
 
+        if supports_fixed_graph_layout:
+            st.write("### **Graph Layout**")
+            st.toggle(
+                "Fix Graph Layout",
+                key="fix_graph_layout",
+                value=st.session_state.get("fix_graph_layout", False),
+                help="Fixes the graph in current position.",
+            )
+        else:
+            st.session_state.fix_graph_layout = False
+
     def render_log_filter_extensions(self, sidebar_values: dict[str, any]) -> None:
         """Renders additional node filtering controls.
         Can be overridden by subclasses to add more node filters.
         """
         pass
 
-    def display_sidebar(self, sidebar_values: dict[str, any]) -> None:
+    def display_sidebar(
+        self, sidebar_values: dict[str, any], supports_fixed_graph_layout: bool = False
+    ) -> None:
         """Displays the sidebar for the algorithm views. The methode calls the render_sidebar method of the subclass.
 
         Parameters
         ----------
         sidebar_values : dict[str, any]
             A dictionary containing the values for the sidebar elements. The keys of the dictionary are equal to the keys of the sliders.
+        supports_fixed_graph_layout : bool, optional
+            If true, the fixed graph layout is enabled, be default false.
         """
         with st.sidebar:
-            self.render_sidebar(sidebar_values)
+            self.render_sidebar(
+                sidebar_values, supports_fixed_graph_layout=supports_fixed_graph_layout
+            )
 
     def display_back_button(self) -> None:
         """Displays the back button. The button navigates back to the home page."""
