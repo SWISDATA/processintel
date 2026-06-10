@@ -4,6 +4,7 @@ import streamlit as st
 from app.components.buttons import to_home
 from app.exceptions.graph_exceptions import InvalidNodeNameException, GraphException
 from app.exceptions.type_exceptions import TypeIsNoneException
+from app.graphs.visualization.base_graph import BaseGraph
 from app.logger import get_logger
 from app.transformations.dataframe_transformations import DataframeTransformations
 from app.ui.base_ui.base_controller import BaseController
@@ -13,7 +14,11 @@ class BaseAlgorithmController(BaseController, ABC):
     """Base class for the algorithm controllers. It provides the basic methods for the algorithm controllers."""
 
     def __init__(
-        self, views=None, mining_model_class=None, dataframe_transformations=None
+        self,
+        views=None,
+        mining_model_class=None,
+        dataframe_transformations=None,
+        supports_fixed_graph_layout: bool = False,
     ):
         """Initializes the controller for the algorithm views.
 
@@ -25,11 +30,14 @@ class BaseAlgorithmController(BaseController, ABC):
             The class of the mining model, by default None
         dataframe_transformations : DataframeTransformations, optional
             The class for the dataframe transformations. If None is passed, a new instance is created, by default None
+        supports_fixed_graph_layout : bool
+            If True, the fixed graph layout is available, by default False.
         """
         self.spm_threshold = None
         self.node_freq_threshold_normalized = None
         self.node_freq_threshold_absolute = None
         self.logger = get_logger("BaseAlgorithmController")
+        self.supports_fixed_graph_layout = supports_fixed_graph_layout
 
         self.mining_model = None
 
@@ -227,6 +235,7 @@ class BaseAlgorithmController(BaseController, ABC):
         self.process_algorithm_parameters()
         view.display_back_button()
         view.display_export_button(disabled=True)
+
         if self.have_parameters_changed() or self.mining_model.get_graph() is None:
             try:
                 view.display_loading_spinner("Mining...", self.perform_mining)
@@ -249,9 +258,18 @@ class BaseAlgorithmController(BaseController, ABC):
                 st.warning(
                     "Do not change the parameters while mining. This will cause an error. Wait until the mining is finished."
                 )
-        view.display_sidebar(self.get_sidebar_values())
 
         graph = self.mining_model.get_graph()
+        self._disable_fixed_layout_if_graph_changed(graph)
+
+        view.display_sidebar(
+            self.get_sidebar_values(),
+            supports_fixed_graph_layout=self.supports_fixed_graph_layout,
+        )
+
+        new_graph = self._apply_fixed_graph_position(graph)
+        if new_graph is not None:
+            graph = new_graph
         self._apply_happy_path_highlighting(graph)
         view.display_graph(graph)
         view.display_export_button(disabled=False)
@@ -272,3 +290,104 @@ class BaseAlgorithmController(BaseController, ABC):
             happy_path_events = self.mining_model.get_happy_path_events(variant_index)
 
         graph.highlight_happy_path(happy_path_events)
+
+    def _apply_fixed_graph_position(self, graph: BaseGraph) -> BaseGraph | None:
+        """Apply fixed graph position handling to the current graph.
+
+        Parameters
+        ----------
+        graph : BaseGraph
+            The currently generated graph after applying filtering.
+
+        Returns
+        -------
+        BaseGraph | None
+            If fixed layout is enabled and graph already is stored, returns the graph
+            with updated visibility information. Otherwirse, None.
+        """
+        if not self.supports_fixed_graph_layout:
+            st.session_state.graph_fixed_position = None
+            return None
+
+        if graph is None:
+            return None
+
+        if not st.session_state.get("fix_graph_layout", False):
+            st.session_state.graph_fixed_position = None
+            return None
+
+        if not st.session_state.get("graph_fixed_position"):
+            st.session_state.graph_fixed_position = graph
+            return None
+
+        fixed_graph = st.session_state.get("graph_fixed_position")
+        fixed_graph.set_invisible_nodes(graph.get_node_ids())
+        fixed_graph.update_visible_nodes(graph.get_nodes())
+        fixed_graph.set_invisible_edges(graph.get_edges())
+        return fixed_graph
+
+    def _disable_fixed_layout_if_graph_changed(self, graph: BaseGraph) -> None:
+        """Disable fixed graph layout if the current graph structure has changed.
+
+        Parameters
+        ----------
+        graph : BaseGraph
+            The newly generated graph.
+        """
+        if graph is None:
+            return
+        if not st.session_state.get("fix_graph_layout", False):
+            return
+
+        fixed_graph = st.session_state.get("graph_fixed_position")
+        if fixed_graph is None:
+            return
+        if self._has_current_graph_new_element(fixed_graph, graph):
+            self._disable_fixed_layout()
+
+    def _has_current_graph_new_element(
+        self, fixed_graph: BaseGraph, current_graph: BaseGraph
+    ) -> bool:
+        """Compare edges and nodes of fixed graph and current graph.
+
+        Parameters
+        ----------
+        fixed_graph : BaseGraph
+            The saved graph when fixed layout was enabled.
+        current_graph : BaseGraph
+            The newly generated graph with which fixed graph will be compared.
+
+        Returns
+        -------
+        bool
+            Returns True when current graph has edge or node which are not present
+            in fixed graph, otherwise False.
+        """
+        current_edge_ids = {
+            (edge.source, edge.destination) for edge in current_graph.get_edges()
+        }
+        fixed_edge_ids = {
+            (edge.source, edge.destination) for edge in fixed_graph.get_edges()
+        }
+
+        current_node_ids = {node.get_id() for node in current_graph.get_nodes()}
+        fixed_node_ids = {node.get_id() for node in fixed_graph.get_nodes()}
+
+        for source_id, target_id in current_edge_ids:
+            if (source_id, target_id) not in fixed_edge_ids:
+                return True
+
+        for node_id in current_node_ids:
+            if node_id not in fixed_node_ids:
+                return True
+
+        return False
+
+    def _disable_fixed_layout(self) -> None:
+        """Clear stored layout state and disable the fix layout toggle and show a warning that layout was disabled."""
+        st.session_state.fix_graph_layout = False
+        st.session_state.graph_fixed_position = None
+        st.warning(
+            "Fixed graph layout was disabled because the graph structure changed and the graph had to be regenerated."
+        )
+        return None
