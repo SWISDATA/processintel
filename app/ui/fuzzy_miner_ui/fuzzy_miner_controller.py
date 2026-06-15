@@ -36,7 +36,12 @@ class FuzzyMinerController(BaseAlgorithmController):
         if mining_model_class is None:
             mining_model_class = FuzzyMining
 
-        super().__init__(views, mining_model_class, dataframe_transformations)
+        super().__init__(
+            views,
+            mining_model_class,
+            dataframe_transformations,
+            supports_fixed_graph_layout=True,
+        )
 
     def get_page_title(self) -> str:
         """Returns the page title.
