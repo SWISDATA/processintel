@@ -52,6 +52,7 @@ my-python.pkgs.buildPythonApplication rec {
     graphviz
     ddcal
     streamlit
+    uvicorn
   ];
 
   nativeBuildInputs = with my-python.pkgs; [

@@ -16,9 +16,10 @@ dependencies = [
     "graphviz",
     "ddcal>=1.2.0",
     "streamlit>=1.58.0",
+    "uvicorn",
 ]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 
 [project.scripts]
 processintel = "app.__main__:main"

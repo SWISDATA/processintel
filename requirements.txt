@@ -3,3 +3,4 @@ pandas
 graphviz
 ddcal>=1.2.0
 streamlit>=1.58.0
+uvicorn
