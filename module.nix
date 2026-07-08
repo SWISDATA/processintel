@@ -91,6 +91,15 @@ in
         Wheter to enable production mode or fallback to dev mode
       '';
 
+      useSocket = lib.mkOption {
+        type = lib.types.bool;
+        default = cfg.production;
+        description = ''
+          Whether to bind a unix socket instead of a TCP port.
+          Defaults to the value of the production option.
+        '';
+      };
+
       domainName = lib.mkOption {
         type = lib.types.str;
         description = ''
@@ -170,8 +179,6 @@ in
         PROCESSINTEL_ASSETS_DIR = "${package}/assets";
         PROCESSINTEL_LOG_LEVEL = cfg.logLevel;
 
-        STREAMLIT_SERVER_ADDRESS = if cfg.production then "unix://${socketFile}" else cfg.httpAddress;
-        STREAMLIT_SERVER_PORT = toString cfg.httpPort;
         STREAMLIT_SERVER_MAX_UPLOAD_SIZE = toString cfg.maxUploadSizeMb;
         STREAMLIT_SERVER_ENABLE_CORS = "true";
         STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION = "true";
@@ -181,9 +188,15 @@ in
         STREAMLIT_CLIENT_TOOLBAR_MODE = "minimal";
       };
 
-      script = ''
-        processintel
-      '';
+      script =
+        if cfg.useSocket then
+          ''
+            processintel --socket ${socketFile}
+          ''
+        else
+          ''
+            processintel --host ${cfg.httpAddress} --port ${toString cfg.httpPort}
+          '';
 
       serviceConfig = {
         DynamicUser = true;
@@ -202,15 +215,15 @@ in
         ProtectProc = "invisible";
         RestrictAddressFamilies = "AF_UNIX";
 
-        ExecStartPost =
+        ExecStartPost = lib.optional cfg.useSocket (
           let
             script = pkgs.writeShellScript "${serviceName}-start-post" ''
               remainingRetries=10
               while true; do
-                echo "Testing socket existinace, remaining retries: $remainingRetries"
+                echo "Testing socket existance, remaining retries: $remainingRetries"
 
                 if [ "$remainingRetries" = 0 ]; then
-                  echo "<3>Scket file not available after retry count was reached '${socketFile}'"
+                  echo "<3>Socket file not available after retry count was reached '${socketFile}'"
                   exit 1
                 fi
 
@@ -228,7 +241,9 @@ in
               echo "Service ready"
             '';
           in
-          "+${script}";
+          "+${script}"
+        );
+
       };
     };
 
@@ -250,14 +265,14 @@ in
     };
 
     services.nginx.upstreams.${serviceName} =
-      if cfg.production then
+      if cfg.useSocket then
         {
           servers."unix:${socketFile}" = { };
           extraConfig = "keepalive 32;";
         }
       else
         {
-          servers."http://${cfg.httpAddress}:${toString cfg.httpPort}/" = { };
+          servers."${cfg.httpAddress}:${toString cfg.httpPort}" = { };
           extraConfig = "keepalive 32;";
         };
 
