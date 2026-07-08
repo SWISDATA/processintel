@@ -222,7 +222,7 @@ class BaseAlgorithmView(BaseView):
         title : str
             The title of the page.
         """
-        from config import docs_path_mappings
+        from app.config import docs_path_mappings
 
         if st.session_state.algorithm not in docs_path_mappings:
             st.title(title)
