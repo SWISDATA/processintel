@@ -64,7 +64,7 @@ pip install -r requirements.txt
 Run the application from the project root:
 
 ```bash
-streamlit run app/streamlit_app.py
+python -m streamlit run app/streamlit_app.py
 ```
 
 The application will open automatically in your default web browser.
