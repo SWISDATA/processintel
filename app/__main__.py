@@ -1,6 +1,7 @@
+import argparse
 import os
-from streamlit import config
-from streamlit.web.bootstrap import run as streamlit_run
+from streamlit import config, App
+import uvicorn
 
 
 def parse_env_value(value: str):
@@ -44,6 +45,25 @@ def apply_streamlit_env(prefix="STREAMLIT_"):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--socket",
+        default="",
+        help="Path to a unix socket to bind.",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host address to bind when no socket is used.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8501,
+        help="TCP port to bind when no socket is used.",
+    )
+    args = parser.parse_args()
+
     apply_streamlit_env()
 
     config.set_option(
@@ -74,12 +94,23 @@ def main():
     )
 
     app_path = os.path.join(os.path.dirname(__file__), "streamlit_app.py")
-    streamlit_run(
-        app_path,
-        is_hello=False,
-        args=[],
-        flag_options={},
-    )
+    app = App(app_path)
+
+    if args.socket:
+        uvicorn.run(
+            app,
+            uds=args.socket,
+            ws_ping_interval=30,
+            ws_ping_timeout=300,
+        )
+    else:
+        uvicorn.run(
+            app,
+            host=args.host,
+            port=args.port,
+            ws_ping_interval=30,
+            ws_ping_timeout=300,
+        )
 
 
 if __name__ == "__main__":
