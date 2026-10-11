@@ -324,6 +324,9 @@ class BaseAlgorithmController(BaseController, ABC):
         fixed_graph.set_invisible_nodes(graph.get_node_ids())
         fixed_graph.update_visible_nodes(graph.get_nodes())
         fixed_graph.set_invisible_edges(graph.get_edges())
+        fixed_graph.set_display_hidden_elements(
+            st.session_state.get("display_hidden_elements", True)
+        )
         return fixed_graph
 
     def _disable_fixed_layout_if_graph_changed(self, graph: BaseGraph) -> None:

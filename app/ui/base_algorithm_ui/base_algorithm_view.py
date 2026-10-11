@@ -121,6 +121,13 @@ class BaseAlgorithmView(BaseView):
                 value=st.session_state.get("fix_graph_layout", False),
                 help="Fixes the graph in current position.",
             )
+            if st.session_state.get("fix_graph_layout", False):
+                st.toggle(
+                    "Display Hidden Elements",
+                    key="display_hidden_elements",
+                    value=st.session_state.get("display_hidden_elements", True),
+                    help="Shows filtered out nodes and edges greyed out instead of hiding them.",
+                )
         else:
             st.session_state.fix_graph_layout = False
 
