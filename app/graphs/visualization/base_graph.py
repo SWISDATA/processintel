@@ -216,8 +216,11 @@ class BaseGraph:
         self._highlighted_node_ids: set[str] = set()
         self._invisible_node_ids: set[str] = set()
         self._invisible_edge_ids: set[tuple[str, str]] = set()
+        self._display_hidden_elements = False
         self._highlight_fillcolor = "#FFE08A"
         self._highlight_bordercolor = "#D97B00"
+        self._hidden_fillcolor = "#F2F2F2"
+        self._hidden_color = "#C8C8C8"
 
     def clear_highlighted_nodes(self) -> None:
         """Remove all node highlighting."""
@@ -258,6 +261,16 @@ class BaseGraph:
         for node in self.get_nodes():
             if node.get_id() not in current_node_ids:
                 self._invisible_node_ids.add(node.get_id())
+
+    def set_display_hidden_elements(self, display: bool) -> None:
+        """Set whether invisible nodes and edges are rendered greyed out or hidden.
+
+        Parameters
+        ----------
+        display : bool
+            If True, invisible elements are rendered greyed out, otherwise they are hidden.
+        """
+        self._display_hidden_elements = display
 
     def update_visible_nodes(self, current_nodes: list[Node]) -> None:
         """Update labels, data and visual attributes of nodes that exist in both graphs.
@@ -644,38 +657,87 @@ class BaseGraph:
         return escaped_node_id
 
     def _make_invisible_edge_lines(self) -> list[str]:
-        """Create Graphviz lines for edges that are set to invisible.
+        """Create Graphviz lines for edges that are missing from the current graph.
+        If display hidden elements is enabled, the edges are rendered greyed out and dashed,
+        otherwise they are set to invisible.
 
         Returns
         -------
         list[str]
-           Graphviz edges set to invisible.
+            Graphviz edges set to greyed out or invisible.
         """
+        if self._display_hidden_elements:
+            edge_attributes = (
+                f'style="dashed", color="{self._hidden_color}", '
+                f'fontcolor="{self._hidden_color}", penwidth="2"'
+            )
+        else:
+            edge_attributes = 'style="invis"'
+
         lines = []
         for source_id, target_id in self._invisible_edge_ids:
             escaped_source_id = self._get_escaped_node_id(source_id)
             escaped_target_id = self._get_escaped_node_id(target_id)
             lines.append(
-                f'\t"{escaped_source_id}" -> "{escaped_target_id}" [style="invis"];'
+                f'\t"{escaped_source_id}" -> "{escaped_target_id}" [{edge_attributes}];'
             )
 
         return lines
 
     def _make_invisible_node_lines(self) -> list[str]:
-        """Create Graphviz lines for nodes that should be set to invisible.
+        """Create Graphviz lines for nodes that are missing from the current graph.
+        If display hidden elements is enabled, the nodes are rendered greyed out and dashed,
+        otherwise they are set to invisible.
 
         Returns
         -------
         list[str]
-            Graphviz nodes set to invisible.
+            Graphviz nodes set to greyed out or invisible.
         """
+        if self._display_hidden_elements:
+            node_attributes = (
+                f'style="filled,dashed, rounded", fillcolor="{self._hidden_fillcolor}", '
+                f'color="{self._hidden_color}", fontcolor="{self._hidden_color}"'
+            )
+        else:
+            node_attributes = 'style="invis"'
+
         lines = []
         if self._invisible_node_ids:
             for node_id in self._invisible_node_ids:
                 escaped_node_id = self._get_escaped_node_id(node_id)
-                lines.append(f'\t"{escaped_node_id}" [style="invis"];')
+                attributes = node_attributes
+                if self._display_hidden_elements:
+                    hidden_label = self._get_hidden_html_label(node_id)
+                    if hidden_label is not None:
+                        attributes += f", label={hidden_label}"
+                lines.append(f'\t"{escaped_node_id}" [{attributes}];')
 
         return lines
+
+    def _get_hidden_html_label(self, node_id: str) -> str | None:
+        """Create a greyed out copy of a node's HTML label.
+        Font colors inside HTML labels override the node's fontcolor,
+        so they have to be replaced with the hidden color.
+
+        Parameters
+        ----------
+        node_id : str
+            The id of the hidden node.
+
+        Returns
+        -------
+        str | None
+            The HTML label with red font colors set to the hidden color,
+            or None if the node has no HTML label.
+        """
+        label = self.get_node(node_id).get_label()
+        if not (label.startswith("<") and label.endswith(">")):
+            return None
+
+        return label.replace('color="red"', f'color="{self._hidden_color}"').replace(
+            "color='red'", f"color='{self._hidden_color}'"
+        )
 
     def _make_highlighted_node_lines(self) -> list[str]:
         """Create Graphviz lines for highlighted nodes in fixed graph.
@@ -690,6 +752,9 @@ class BaseGraph:
             # Inject "override" node statements before the closing brace.
             # Graphviz merges attributes for the same node id -> safely updates styling.
             for node_id in sorted(self._highlighted_node_ids):
+                # Hidden nodes keep their hidden style instead of being highlighted.
+                if node_id in self._invisible_node_ids:
+                    continue
                 escaped_node_id = self._get_escaped_node_id(node_id)
                 lines.append(
                     f'\t"{escaped_node_id}" '
