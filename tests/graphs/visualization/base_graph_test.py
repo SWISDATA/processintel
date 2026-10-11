@@ -291,6 +291,103 @@ class TestBaseGraph(unittest.TestCase):
         self.assertIn('"task 1" -> "End" [style="invis"];', graphviz_string)
         self.assertIn('"task 1" [style="invis"];', graphviz_string)
 
+    def test_display_hidden_elements_renders_hidden_elements_greyed_out(self):
+        fixed_graph = BaseGraph()
+        fixed_graph.add_node("node1")
+        fixed_graph.add_node("node2")
+        fixed_graph.add_edge("node1", "node2", 3)
+
+        current_graph = BaseGraph()
+        current_graph.add_node("node1")
+
+        fixed_graph.set_invisible_nodes(current_graph.get_node_ids())
+        fixed_graph.set_invisible_edges(current_graph.get_edges())
+        fixed_graph.set_display_hidden_elements(True)
+        graphviz_string = fixed_graph.get_graphviz_string()
+
+        self.assertNotIn('style="invis"', graphviz_string)
+        self.assertIn('"node2" [style="filled,dashed, rounded"', graphviz_string)
+        self.assertIn('"node1" -> "node2" [style="dashed"', graphviz_string)
+
+    def test_display_hidden_elements_disabled_again_renders_hidden_elements_invisible(
+        self,
+    ):
+        fixed_graph = BaseGraph()
+        fixed_graph.add_node("node1")
+        fixed_graph.add_node("node2")
+        fixed_graph.add_edge("node1", "node2", 3)
+
+        current_graph = BaseGraph()
+        current_graph.add_node("node1")
+
+        fixed_graph.set_invisible_nodes(current_graph.get_node_ids())
+        fixed_graph.set_invisible_edges(current_graph.get_edges())
+        fixed_graph.set_display_hidden_elements(True)
+        fixed_graph.get_graphviz_string()
+        fixed_graph.set_display_hidden_elements(False)
+        graphviz_string = fixed_graph.get_graphviz_string()
+
+        self.assertIn('"node2" [style="invis"];', graphviz_string)
+        self.assertIn('"node1" -> "node2" [style="invis"];', graphviz_string)
+        self.assertNotIn('style="dashed"', graphviz_string)
+        self.assertNotIn('style="filled,dashed', graphviz_string)
+
+    def test_display_hidden_elements_renders_html_label_font_color_grey(self):
+        fixed_graph = BaseGraph()
+        fixed_graph.add_node("node1")
+        fixed_graph.add_node("node2", label='<node2<br/><font color="red">5</font>>')
+        fixed_graph.add_node(
+            "cluster", label="<cluster<br/>2 Elements<br/><font color='red'>~3</font>>"
+        )
+
+        current_graph = BaseGraph()
+        current_graph.add_node("node1")
+
+        fixed_graph.set_invisible_nodes(current_graph.get_node_ids())
+        fixed_graph.set_display_hidden_elements(True)
+        lines = fixed_graph._make_invisible_node_lines()
+
+        node2_line = next(line for line in lines if '"node2"' in line)
+        cluster_line = next(line for line in lines if '"cluster"' in line)
+        self.assertIn('label=<node2<br/><font color="#C8C8C8">5</font>>', node2_line)
+        self.assertIn(
+            "label=<cluster<br/>2 Elements<br/><font color='#C8C8C8'>~3</font>>",
+            cluster_line,
+        )
+        self.assertNotIn("red", node2_line)
+        self.assertNotIn("red", cluster_line)
+
+    def test_hidden_html_label_is_not_changed_when_display_hidden_elements_disabled(
+        self,
+    ):
+        fixed_graph = BaseGraph()
+        fixed_graph.add_node("node1")
+        fixed_graph.add_node("node2", label='<node2<br/><font color="red">5</font>>')
+
+        current_graph = BaseGraph()
+        current_graph.add_node("node1")
+
+        fixed_graph.set_invisible_nodes(current_graph.get_node_ids())
+        fixed_graph.set_display_hidden_elements(False)
+        lines = fixed_graph._make_invisible_node_lines()
+
+        self.assertEqual(lines, ['\t"node2" [style="invis"];'])
+
+    def test_hidden_nodes_are_not_highlighted(self):
+        fixed_graph = BaseGraph()
+        fixed_graph.add_node("node1")
+        fixed_graph.add_node("node2")
+
+        current_graph = BaseGraph()
+        current_graph.add_node("node1")
+
+        fixed_graph.set_invisible_nodes(current_graph.get_node_ids())
+        fixed_graph.highlight_happy_path({"node1", "node2"})
+        graphviz_string = fixed_graph.get_graphviz_string()
+
+        self.assertIn('"node1" [fillcolor=', graphviz_string)
+        self.assertNotIn('"node2" [fillcolor=', graphviz_string)
+
 
 if __name__ == "__main__":
     unittest.main()
