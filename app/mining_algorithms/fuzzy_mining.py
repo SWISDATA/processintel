@@ -676,7 +676,7 @@ class FuzzyMining(BaseMining):
                     norm_frequency,
                     abs_frequency,
                     (w, h),
-                    style="filled",
+                    style="filled, rounded",
                     **{"Unary Significance *(normalized)*": unary_sig},
                 )
 
