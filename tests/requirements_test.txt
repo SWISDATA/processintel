@@ -2,8 +2,9 @@ numpy
 pandas
 graphviz
 ddcal>=1.2.0
-streamlit>=1.58.0
+streamlit==1.58.0
 uvicorn
 
 # for testing
 parameterized
+black==25.1.0
