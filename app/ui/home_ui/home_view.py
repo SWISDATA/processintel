@@ -4,7 +4,7 @@ import streamlit as st
 
 
 from app.components.buttons import navigation_button
-from app.config import algorithm_mappings, ASSETS_DIR
+from app.config import algorithm_mappings, ASSETS_DIR, DEMO_DATASET_PATH
 from app.ui.base_ui.base_view import BaseView
 from app.components.footer import footer
 
@@ -75,6 +75,29 @@ class HomeView(BaseView):
                 accept_multiple_files=False,
                 key="uploaded_file",
             )
+
+    def display_demo_dataset(self):
+        """Displays the demo dataset component. The demo dataset can be loaded directly or donwloaded."""
+        with self.content_column:
+            st.markdown("##### Test on a demo dataset")
+            st.write(
+                "Load an ai generated demo dataset of an online shop to try out the mining algorithms, or download it to inspect it in more detail"
+            )
+            load_column, download_column = st.columns(2)
+            with load_column:
+                navigation_button(
+                    label="Load demo dataset",
+                    route="ColumnSelection",
+                    width="stretch",
+                    beforeNavigate=self.controller.set_demo_df,
+                )
+            with download_column:
+                st.download_button(
+                    label="Download demo dataset",
+                    data=self.controller.get_demo_dataset(),
+                    file_name=os.path.basename(DEMO_DATASET_PATH),
+                    width="stretch",
+                )
 
     def display_model_import(self, model):
         """Displays the model import component. A dropdown is displayed to select the mining algorithm.

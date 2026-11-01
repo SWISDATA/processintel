@@ -1,4 +1,4 @@
-from os import getenv
+from os import getenv, path
 
 from app.ui.alpha_miner_ui.alpha_miner_controller import AlphaMinerController
 from app.ui.fuzzy_miner_ui.fuzzy_miner_controller import FuzzyMinerController
@@ -15,6 +15,7 @@ from app.ui.inductive_miner_ui.inductive_miner_controller import (
 
 DOCS_DIR = getenv("PROCESSINTEL_DOCS_DIR", "docs")
 ASSETS_DIR = getenv("PROCESSINTEL_ASSETS_DIR", "assets")
+DEMO_DATASET_PATH = path.join(ASSETS_DIR, "demo", "demo_online_shop_orders.csv")
 
 # colon_substitute is used to replace the colon in event names to make them compatible with graphviz.
 colon_substitute = "___"
