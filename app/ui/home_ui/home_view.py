@@ -4,7 +4,7 @@ import streamlit as st
 
 
 from app.components.buttons import navigation_button
-from app.config import algorithm_mappings, ASSETS_DIR
+from app.config import algorithm_mappings, ASSETS_DIR, DEMO_DATASET_PATH
 from app.ui.base_ui.base_view import BaseView
 from app.components.footer import footer
 
@@ -46,8 +46,7 @@ class HomeView(BaseView):
             st.write(
                 "Welcome to ProcessIntel the transparent open-source application for process mining, event log visualization, and interactive exploration of process models."
             )
-            st.write(
-                """ProcessIntel enables you to:
+            st.write("""ProcessIntel enables you to:
 - import and transform event logs
 - discover process models 
   - by using state-of-the-art process mining algorithms 
@@ -57,8 +56,7 @@ class HomeView(BaseView):
 - export
   - process models
   - your workspace
-  """
-            )
+  """)
 
     def display_file_upload(self, file_types: list[str]):
         """Displays the file upload component.
@@ -75,6 +73,37 @@ class HomeView(BaseView):
                 accept_multiple_files=False,
                 key="uploaded_file",
             )
+
+    def display_demo_dataset(self):
+        """Displays the demo dataset component. The demo dataset can be loaded directly or downloaded."""
+        with self.content_column:
+            st.markdown("##### Test on a demo dataset")
+            st.write(
+                "Load an ai generated demo dataset of an online shop to try out the mining algorithms, or download it to inspect it in more detail"
+            )
+            load_column, download_column = st.columns(2)
+            with load_column:
+                navigation_button(
+                    label="Load demo dataset",
+                    route="ColumnSelection",
+                    width="stretch",
+                    beforeNavigate=self.controller.set_demo_df,
+                )
+            with download_column:
+                st.download_button(
+                    label="Download demo dataset",
+                    data=self.controller.get_demo_dataset(),
+                    file_name=os.path.basename(DEMO_DATASET_PATH),
+                    width="stretch",
+                )
+
+    def display_demo_dataset_description(self):
+        """Displays the description of the demo dataset in an expander."""
+        description = self.controller.get_demo_dataset_description()
+        if description:
+            with self.content_column:
+                with st.expander("About the demo dataset"):
+                    st.markdown(description)
 
     def display_model_import(self, model):
         """Displays the model import component. A dropdown is displayed to select the mining algorithm.
@@ -410,8 +439,7 @@ class HomeView(BaseView):
         return 0
 
     def display_disclaimer(self):
-        footer(
-            """<div>
+        footer("""<div>
                 <strong>Disclaimer</strong><br>
                 ProcessIntel is hosted and operated as a service by
                 <a href="https://swisdata.eu" target="_blank">SWISDATA</a>.<br>
@@ -428,5 +456,4 @@ class HomeView(BaseView):
                 <a href="https://www.swisdata.eu/contact/" target="_blank">
                     https://www.swisdata.eu/contact/
                 </a>
-            </div>"""
-        )
+            </div>""")
