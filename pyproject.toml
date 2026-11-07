@@ -23,7 +23,7 @@ requires-python = ">=3.12"
 
 [project.optional-dependencies]
 dev = [
-    "black==25.1.0",
+    "black~=26.5",
     "parameterized",
 ]
 
