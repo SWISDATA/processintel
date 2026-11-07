@@ -11,6 +11,7 @@ from app.io_operations.export_operations import ExportOperations
 from app.io_operations.import_operations import ImportOperations
 from app.logger import get_logger
 from app.ui.base_ui.base_controller import BaseController
+from app.config import DEMO_DATASET_PATH
 
 
 class HomeController(BaseController):
@@ -155,6 +156,24 @@ class HomeController(BaseController):
                 return
 
             st.session_state.df = df
+
+    def set_demo_df(self):
+        """Loads the demo dataset and stores the dataframe in the session state."""
+        try:
+            st.session_state.df = self.import_model.read_csv(DEMO_DATASET_PATH, ",")
+        except Exception as e:
+            self.logger.exception(e)
+            st.session_state.error = f"Could not load the demo dataset: {str(e)}"
+
+    def get_demo_dataset(self) -> bytes:
+        """Returns the content of the demo dataset file.
+
+        Returns
+        -------
+        bytes
+            The demo dataset file as bytes.
+        """
+        return self.import_model.read_file_binary(DEMO_DATASET_PATH)
 
     def convert_csv_to_xes(
         self,
@@ -439,6 +458,7 @@ class HomeController(BaseController):
         selected_view.display_file_upload(self.supported_file_types)
         if self.uploaded_file is not None:
             self.process_file(selected_view)
+        selected_view.display_demo_dataset()
         selected_view.display_file_converter()
 
         selected_view.display_disclaimer()
