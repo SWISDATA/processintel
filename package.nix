@@ -73,10 +73,14 @@ my-python.pkgs.buildPythonApplication rec {
 
   postInstall = ''
     mkdir -p $out/docs/algorithms
+    mkdir -p $out/docs/demos
     mkdir -p $out/assets
+    mkdir -p $out/data
 
     cp -r $src/docs/algorithms/* $out/docs/algorithms
+    cp -r $src/docs/demos/* $out/docs/demos
     cp -r $src/assets/* $out/assets
+    cp -r $src/data/* $out/data
   '';
 
 }

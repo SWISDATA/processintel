@@ -15,6 +15,7 @@ from app.ui.inductive_miner_ui.inductive_miner_controller import (
 
 DOCS_DIR = getenv("PROCESSINTEL_DOCS_DIR", "docs")
 ASSETS_DIR = getenv("PROCESSINTEL_ASSETS_DIR", "assets")
+DATA_DIR = getenv("PROCESSINTEL_DATA_DIR", "data")
 
 # colon_substitute is used to replace the colon in event names to make them compatible with graphviz.
 colon_substitute = "___"
@@ -34,6 +35,15 @@ import_file_types_mapping = {
 import_file_suffixes = [
     suffix for suffixes in import_file_types_mapping.values() for suffix in suffixes
 ]
+
+# DEMO DATASET CONFIGURATIONS
+# ---------------------------
+
+# The path of the demo dataset file.
+DEMO_DATASET_PATH = f"{DATA_DIR}/demo_online_shop_orders.csv"
+DEMO_DATASET_DESCRIPTION_PATH = (
+    f"{DOCS_DIR}/demos/demo_online_shop_orders_description.md"
+)
 
 # GRAPH EXPORT CONFIGURATIONS
 # ---------------------------

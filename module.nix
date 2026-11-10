@@ -177,6 +177,7 @@ in
         PROCESSINTEL_DOCS_DIR = "${package}/docs";
         PROCESSINTEL_TMP_DIR = "${cacheDir}/tmp";
         PROCESSINTEL_ASSETS_DIR = "${package}/assets";
+        PROCESSINTEL_DATA_DIR = "${package}/data";
         PROCESSINTEL_LOG_LEVEL = cfg.logLevel;
 
         STREAMLIT_SERVER_MAX_UPLOAD_SIZE = toString cfg.maxUploadSizeMb;
