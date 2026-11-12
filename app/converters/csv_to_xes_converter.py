@@ -43,9 +43,6 @@ class CsvToXesConverter:
 
         df = self._rename_columns(df, case_id_col, activity_col, timestamp_col)
 
-        df[self.xes_case_col] = df[self.xes_case_col].astype(str)
-        df[self.xes_activity_col] = df[self.xes_activity_col].astype(str)
-
         if not pd.api.types.is_datetime64_any_dtype(df[self.xes_timestamp_col]):
             df[self.xes_timestamp_col] = self._parse_timestamps(
                 df[self.xes_timestamp_col]
@@ -61,6 +58,9 @@ class CsvToXesConverter:
             raise ValueError(
                 "No valid data remaining after processing. Please check your data for missing values."
             )
+        # convert only afte removing rows
+        df[self.xes_case_col] = df[self.xes_case_col].astype(str)
+        df[self.xes_activity_col] = df[self.xes_activity_col].astype(str)
 
         xes_tree = self._create_xes_tree(df)
         summary = {
